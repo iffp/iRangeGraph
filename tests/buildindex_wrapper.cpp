@@ -1,9 +1,9 @@
-#include "construction.h"
 #include <atomic>
 #include <thread>
 #include <chrono>
 #include "fanns_survey_helpers.cpp"
 #include "global_thread_counter.h"
+#include "construction.h"
 
 std::unordered_map<std::string, std::string> paths;
 
