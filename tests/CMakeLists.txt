@@ -1,3 +1,7 @@
 add_executable(buildindex buildindex.cpp)
 add_executable(search search.cpp)
 add_executable(search_multi search_multi.cpp)
+add_executable(buildindex_wrapper buildindex_wrapper.cpp)
+add_executable(search_wrapper search_wrapper.cpp)
+add_executable(fvecs_to_sorted_bin fvecs_to_sorted_bin.cpp)
+add_executable(fvecs_to_bin fvecs_to_bin.cpp)
