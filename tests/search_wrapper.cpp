@@ -109,10 +109,11 @@ int main(int argc, char **argv)
             res.pop();
         }
 
-        // Count true positives
-        for (int gt_id : groundtruth[i])
+        // Count true positives - only compare against first query_K groundtruth results
+        int gt_size = std::min((int)groundtruth[i].size(), query_K);
+        for (int j = 0; j < gt_size; j++)
         {
-            if (result_set.count(gt_id))
+            if (result_set.count(groundtruth[i][j]))
                 total_true_positives++;
         }
         total_queries_processed++;
