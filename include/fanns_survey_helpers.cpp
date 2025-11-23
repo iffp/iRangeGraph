@@ -8,6 +8,7 @@
 #include <atomic>
 #include <chrono>
 #include <unistd.h>
+#include <utility>
 
 #include "global_thread_counter.h"
 
@@ -42,7 +43,7 @@ std::vector<std::vector<int>> read_ivecs(const std::string& filename) {
         if (!file.read(reinterpret_cast<char*>(&d), sizeof(int))) break;  // Read dimension
         std::vector<int> vec(d);
         if (!file.read(reinterpret_cast<char*>(vec.data()), d * sizeof(int))) break;  // Read vector data
-        dataset.push_back(move(vec));
+        dataset.push_back(std::move(vec));
     }
     file.close();
     return dataset;
