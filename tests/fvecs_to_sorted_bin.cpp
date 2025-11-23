@@ -108,6 +108,18 @@ int main(int argc, char** argv) {
     std::cout << "Writing sorted vectors to " << output_bin << "...\n";
     write_bin(output_bin, sorted_vectors);
     
+    // Save the mapping: sorted_index -> original_index
+    // This allows translating IDs from sorted space back to original space
+    std::string mapping_file = output_bin + ".mapping";
+    std::ofstream mapping_out(mapping_file, std::ios::binary);
+    if (mapping_out) {
+        int num_points = indices.size();
+        mapping_out.write(reinterpret_cast<const char*>(&num_points), sizeof(int));
+        mapping_out.write(reinterpret_cast<const char*>(indices.data()), num_points * sizeof(size_t));
+        mapping_out.close();
+        std::cout << "Saved ID mapping to " << mapping_file << "\n";
+    }
+    
     std::cout << "Conversion completed successfully!\n";
     std::cout << "  Vectors: " << sorted_vectors.size() << "\n";
     std::cout << "  Dimension: " << (sorted_vectors.empty() ? 0 : sorted_vectors[0].size()) << "\n";
