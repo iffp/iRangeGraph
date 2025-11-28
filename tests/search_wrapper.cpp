@@ -2,6 +2,7 @@
 #include <thread>
 #include <chrono>
 #include <set>
+#include <omp.h>
 #include "fanns_survey_helpers.cpp"
 #include "global_thread_counter.h"
 #include "iRG_search.h"
@@ -50,6 +51,9 @@ int main(int argc, char **argv)
         throw Exception("M should be a positive integer");
     if (ef_search <= 0)
         throw Exception("ef_search should be a positive integer");
+
+    // Restrict number of threads to 1 for query execution
+    omp_set_num_threads(1);
 
     // Monitor thread count
     std::atomic<bool> done(false);
