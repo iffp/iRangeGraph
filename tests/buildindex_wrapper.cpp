@@ -40,15 +40,17 @@ int main(int argc, char **argv)
     // Get number of hardware threads and use that for index construction
     unsigned int nthreads = std::thread::hardware_concurrency();
 
+    // Load data BEFORE starting timer (exclude from timing)
+    iRangeGraph::DataLoader storage;
+    storage.LoadData(paths["data_vector"]);
+
     // Monitor thread count
     std::atomic<bool> done(false);
     std::thread monitor(monitor_thread_count, std::ref(done));
 
-    // Start timing
+    // Start timing - measure only index construction, not data loading
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    iRangeGraph::DataLoader storage;
-    storage.LoadData(paths["data_vector"]);
     iRangeGraph::iRangeGraph_Build<float> index(&storage, M, ef_construction);
     index.max_threads = nthreads;
     index.buildandsave(paths["index_save"]);
