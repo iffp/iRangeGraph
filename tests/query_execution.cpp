@@ -6,6 +6,9 @@
 #include "fanns_survey_helpers.cpp"
 #include "global_thread_counter.h"
 #include "iRG_search.h"
+#include <vector>
+#include <algorithm>
+#include <iterator>
 
 std::unordered_map<std::string, std::string> paths;
 
@@ -166,15 +169,15 @@ int main(int argc, char **argv)
 	size_t total_count = 0;
 	for (size_t q = 0; q < storage.query_nb; q++) {
 		int n_valid_neighbors = std::min(k, (int)groundtruth[q].size());
-		vector<int> groundtruth_q;
-		vector<int> nearest_neighbors_q;
+		std::vector<int> groundtruth_q;
+		std::vector<int> nearest_neighbors_q;
 		for (size_t i = 0; i < query_results[q].size(); i++) {
 			nearest_neighbors_q.push_back(query_results[q][i]);
 		}
-		sort(groundtruth_q.begin(), groundtruth_q.end());
-		sort(nearest_neighbors_q.begin(), nearest_neighbors_q.end());
-		vector<int> intersection;
-		set_intersection(groundtruth_q.begin(), groundtruth_q.end(), nearest_neighbors_q.begin(), nearest_neighbors_q.end(), back_inserter(intersection));
+		std::sort(groundtruth_q.begin(), groundtruth_q.end());
+		std::sort(nearest_neighbors_q.begin(), nearest_neighbors_q.end());
+		std::vector<int> intersection;
+		std::set_intersection(groundtruth_q.begin(), groundtruth_q.end(), nearest_neighbors_q.begin(), nearest_neighbors_q.end(), std::back_inserter(intersection));
 		match_count += intersection.size();
 		total_count += n_valid_neighbors;
 	}
