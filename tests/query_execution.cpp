@@ -169,7 +169,7 @@ int main(int argc, char **argv)
 	size_t total_count = 0;
 	for (size_t q = 0; q < storage.query_nb; q++) {
 		int n_valid_neighbors = std::min(k, (int)groundtruth[q].size());
-		std::vector<int> groundtruth_q;
+		std::vector<int> groundtruth_q = groundtruth[q];
 		std::vector<int> nearest_neighbors_q;
 		for (size_t i = 0; i < query_results[q].size(); i++) {
 			nearest_neighbors_q.push_back(query_results[q][i]);
