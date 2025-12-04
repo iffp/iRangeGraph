@@ -9,7 +9,7 @@
 
 std::unordered_map<std::string, std::string> paths;
 
-const int query_K = 10;
+int k;
 int M;
 int ef_search;
 
@@ -18,6 +18,10 @@ std::atomic<int> peak_threads(1);
 
 int main(int argc, char **argv)
 {
+    // Monitor thread count
+    std::atomic<bool> done(false);
+    std::thread monitor(monitor_thread_count, std::ref(done));
+
     for (int i = 0; i < argc; i++)
     {
         std::string arg = argv[i];
@@ -35,6 +39,8 @@ int main(int argc, char **argv)
             M = std::stoi(argv[i + 1]);
         if (arg == "--ef_search")
             ef_search = std::stoi(argv[i + 1]);
+        if (arg == "--k")
+            k = std::stoi(argv[i + 1]);
     }
 
     if (paths["data_vector"] == "")
@@ -51,17 +57,15 @@ int main(int argc, char **argv)
         throw Exception("M should be a positive integer");
     if (ef_search <= 0)
         throw Exception("ef_search should be a positive integer");
+	if (k <= 0)
+		throw Exception("k should be a positive integer");
 
     // Restrict number of threads to 1 for query execution
     omp_set_num_threads(1);
 
-    // Monitor thread count
-    std::atomic<bool> done(false);
-    std::thread monitor(monitor_thread_count, std::ref(done));
-
     // Load the index and data
     iRangeGraph::DataLoader storage;
-    storage.query_K = query_K;
+    storage.query_K = k;
     storage.LoadQuery(paths["query_vector"]);
     
     // Read query ranges from CSV file (format: "low-high" per line)
@@ -75,6 +79,13 @@ int main(int argc, char **argv)
     }
     if (groundtruth.size() != storage.query_nb) {
         throw Exception("Number of groundtruth entries does not match number of queries");
+    }
+
+    // Truncate ground-truth to at most k items
+    for (std::vector<int>& vec : groundtruth) {
+        if (vec.size() > k) {
+            vec.resize(k);
+        }
     }
 
     // Load the ID mapping: sorted_index -> original_index
@@ -101,11 +112,12 @@ int main(int argc, char **argv)
     auto start_time = std::chrono::high_resolution_clock::now();
 
     // Execute queries with single ef_search value
+	int ql, qr;
     for (int i = 0; i < storage.query_nb; i++)
     {
         auto range_pair = query_ranges[i];
-        int ql = range_pair.first;
-        int qr = range_pair.second;
+        ql = range_pair.first;
+        qr = range_pair.second;
 
         // Perform the search
         std::vector<iRangeGraph::TreeNode*> filterednodes = index.tree->range_filter(index.tree->root, ql, qr);
@@ -113,19 +125,17 @@ int main(int argc, char **argv)
             filterednodes, 
             storage.query_points[i].data(), 
             ef_search,  // Use the ef_search parameter
-            query_K, 
+            k, 
             ql, 
             qr, 
             M  // edge_limit = M
         );
 
         // Store results (translate from sorted to original ID space)
-        query_results[i].reserve(query_K);
+        query_results[i].reserve(k);
         while (!res.empty())
         {
-            int sorted_id = res.top().second;
-            int original_id = sorted_to_original[sorted_id];  // Translate to original ID
-            query_results[i].push_back(original_id);
+            query_results[i].push_back(res.top().second);
             res.pop();
         }
     }
@@ -134,6 +144,16 @@ int main(int argc, char **argv)
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_time - start_time;
 
+	// Translate sorted to original IDs in results (after timing)
+	int sorted_id, original_id;
+	for (int q = 0; q < query_results.size(); q++) {
+		for (int i = 0; i < query_results[q].size(); i++) {
+			sorted_id = query_results[q][i];
+			original_id = sorted_to_original[sorted_id];
+			query_results[q][i] = original_id;
+		}
+	}
+
     // Stop monitoring
     done = true;
     monitor.join();
@@ -141,22 +161,25 @@ int main(int argc, char **argv)
     // Calculate QPS (queries per second)
     float qps = storage.query_nb / elapsed.count();
 
-    // Calculate recall AFTER timing stops (exclude from performance measurement)
-    int total_true_positives = 0;
-    for (int i = 0; i < storage.query_nb; i++)
-    {
-        // Convert query results to set for faster lookup
-        std::set<int> result_set(query_results[i].begin(), query_results[i].end());
-        
-        // Count true positives - groundtruth is in original ID space
-        for (int gt_id : groundtruth[i])
-        {
-            if (result_set.count(gt_id))
-                total_true_positives++;
-        }
-    }
+	// Compute recall
+	size_t match_count = 0;
+	size_t total_count = 0;
+	for (size_t q = 0; q < storage.query_nb; q++) {
+		int n_valid_neighbors = std::min(k, (int)groundtruth[q].size());
+		vector<int> groundtruth_q;
+		vector<int> nearest_neighbors_q;
+		for (size_t i = 0; i < query_results[q].size(); i++) {
+			nearest_neighbors_q.push_back(query_results[q][i]);
+		}
+		sort(groundtruth_q.begin(), groundtruth_q.end());
+		sort(nearest_neighbors_q.begin(), nearest_neighbors_q.end());
+		vector<int> intersection;
+		set_intersection(groundtruth_q.begin(), groundtruth_q.end(), nearest_neighbors_q.begin(), nearest_neighbors_q.end(), back_inserter(intersection));
+		match_count += intersection.size();
+		total_count += n_valid_neighbors;
+	}
 
-    float recall = (float)total_true_positives / (storage.query_nb * query_K);
+    double recall = (double)match_count / total_count;
 
     // Print statistics in the expected format
     std::cout << "Query execution completed." << std::endl;

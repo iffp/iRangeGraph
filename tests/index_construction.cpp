@@ -15,6 +15,10 @@ std::atomic<int> peak_threads(1);
 
 int main(int argc, char **argv)
 {
+    // Monitor thread count
+    std::atomic<bool> done(false);
+    std::thread monitor(monitor_thread_count, std::ref(done));
+
     for (int i = 0; i < argc; i++)
     {
         std::string arg = argv[i];
@@ -44,13 +48,8 @@ int main(int argc, char **argv)
     iRangeGraph::DataLoader storage;
     storage.LoadData(paths["data_vector"]);
 
-    // Monitor thread count
-    std::atomic<bool> done(false);
-    std::thread monitor(monitor_thread_count, std::ref(done));
-
     // Start timing - measure only index construction, not data loading
     auto start_time = std::chrono::high_resolution_clock::now();
-
     iRangeGraph::iRangeGraph_Build<float> index(&storage, M, ef_construction);
     index.max_threads = nthreads;
     index.buildandsave(paths["index_save"]);
